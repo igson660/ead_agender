@@ -1,0 +1,11 @@
+node_modules
+.yarn/
+.next
+out
+.env
+.env.local
+.env.*.local
+!.env.example
+*.tsbuildinfo
+coverage
+.DS_Store

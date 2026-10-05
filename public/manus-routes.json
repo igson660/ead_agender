@@ -1,0 +1,10 @@
+{
+  "routes": [
+    { "path": "/", "title": "Studio IEPTEC — Agenda" },
+    { "path": "/agenda", "title": "Agenda do Studio" },
+    { "path": "/agendamento", "title": "Novo agendamento" },
+    { "path": "/admin/login", "title": "Acesso administrativo" },
+    { "path": "/admin", "title": "Painel administrativo" },
+    { "path": "/admin/agendamentos", "title": "Administração de agendamentos" }
+  ]
+}

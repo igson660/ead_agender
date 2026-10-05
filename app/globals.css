@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: light; }
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: #f6f9fd;
+  color: #172033;
+  font-family: Inter, Manrope, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+::selection { background: #b9d8ff; color: #0b315d; }
+
+@layer components {
+  .button-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-ieptec-700 px-4 py-2.5 text-sm font-extrabold text-white shadow-sm transition hover:bg-ieptec-800 focus:outline-none focus:ring-2 focus:ring-ieptec-500 focus:ring-offset-2;
+  }
+  .icon-button {
+    @apply inline-grid h-9 w-9 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-ieptec-200 hover:bg-ieptec-50 hover:text-ieptec-700 focus:outline-none focus:ring-2 focus:ring-ieptec-500 focus:ring-offset-2;
+  }
+  input, textarea, select {
+    @apply w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-medium text-slate-800 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-ieptec-500 focus:ring-2 focus:ring-ieptec-100;
+  }
+  textarea { @apply resize-y; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}
