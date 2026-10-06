@@ -76,13 +76,15 @@ Como a constraint faz parte da mesma inserção/transação, duas requisições 
 ## Regras de agendamento
 
 1. O horário final deve ser posterior ao inicial.
-2. Não é possível solicitar horário no passado.
-3. Sobreposições são bloqueadas.
-4. Há intervalo obrigatório de **15 minutos** após cada utilização, inclusive antes do próximo evento.
-5. Solicitações aguardando aprovação já bloqueiam o período.
-6. Rejeição e cancelamento liberam o período.
-7. A aprovação é uma atualização transacional e mantém a constraint de conflito.
-8. Datas e horários são tratados no fuso **America/Rio_Branco**.
+2. A solicitação precisa ser feita com no mínimo **48 horas de antecedência**.
+3. Sábados e domingos são bloqueados para novos agendamentos.
+4. Não é possível solicitar horário no passado.
+5. Sobreposições são bloqueadas.
+6. Há intervalo obrigatório de **15 minutos** após cada utilização, inclusive antes do próximo evento.
+7. Solicitações aguardando aprovação já bloqueiam o período.
+8. Rejeição e cancelamento liberam o período.
+9. A aprovação é uma atualização transacional e mantém a constraint de conflito.
+10. Datas e horários são tratados no fuso **America/Rio_Branco**.
 
 ## Administração e segurança
 

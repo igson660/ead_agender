@@ -8,6 +8,7 @@ import { ChevronLeft, ChevronRight, Plus, RefreshCw } from "lucide-react";
 import { formatInTimeZone } from "date-fns-tz";
 import { AppointmentCard } from "@/components/appointments/appointment-card";
 import { EmptyState, LoadingState } from "@/components/ui/feedback";
+import { getFirstBookableDate, isDateBookable, isWeekendDate } from "@/lib/scheduling";
 import type { PublicAppointment } from "@/types/appointments";
 
 const timezone = "America/Rio_Branco";
@@ -84,7 +85,7 @@ export function Calendar({ initialDate, initialEvents, compact = false }: { init
           <button type="button" onClick={() => move(-1)} className="icon-button" aria-label="Período anterior"><ChevronLeft size={18} /></button>
           <button type="button" onClick={() => setCursor(new Date(`${initialDate}T12:00:00`))} className="rounded-xl px-2 py-2 text-xs font-bold text-ieptec-700 hover:bg-ieptec-50">Hoje</button>
           <button type="button" onClick={() => move(1)} className="icon-button" aria-label="Próximo período"><ChevronRight size={18} /></button>
-          {!compact && <Link href={`/agendamento?date=${toDateKey(cursor)}`} className="button-primary"><Plus size={16} />Novo agendamento</Link>}
+          {!compact && <Link href={`/agendamento?date=${isDateBookable(toDateKey(cursor)) ? toDateKey(cursor) : getFirstBookableDate()}`} className="button-primary"><Plus size={16} />Novo agendamento</Link>}
         </div>
       </div>
 
@@ -92,15 +93,16 @@ export function Calendar({ initialDate, initialEvents, compact = false }: { init
         <div className={`mt-5 grid gap-3 ${view === "week" ? "md:grid-cols-7" : "grid-cols-1"}`}>
           {days.map((day) => {
             const dateKey = toDateKey(day);
+            const weekend = isWeekendDate(dateKey);
             const dayEvents = events.filter((event) => eventDateKey(event) === dateKey);
             return (
-              <div key={dateKey} className={`min-h-44 rounded-3xl border p-3 ${view === "day" ? "border-ieptec-100 bg-ieptec-50/40" : "border-slate-100 bg-slate-50/70"}`}>
+              <div key={dateKey} className={`min-h-44 rounded-3xl border p-3 ${weekend ? "border-amber-200 bg-amber-50/70" : view === "day" ? "border-ieptec-100 bg-ieptec-50/40" : "border-slate-100 bg-slate-50/70"}`}>
                 <div className="mb-3 flex items-baseline justify-between gap-2">
-                  <p className="text-xs font-black uppercase tracking-wide text-slate-700">{format(day, view === "day" ? "EEEE, dd/MM" : "EEE dd", { locale: ptBR })}</p>
+                  <p className={`text-xs font-black uppercase tracking-wide ${weekend ? "text-amber-800" : "text-slate-700"}`}>{format(day, view === "day" ? "EEEE, dd/MM" : "EEE dd", { locale: ptBR })}</p>
                   <span className="text-[11px] font-bold text-slate-400">{dayEvents.length} {dayEvents.length === 1 ? "evento" : "eventos"}</span>
                 </div>
                 <div className="space-y-2">
-                  {dayEvents.length ? dayEvents.map((event) => <AppointmentCard key={event.id} appointment={event} />) : (
+                  {weekend ? <div className="rounded-2xl border border-dashed border-amber-200 bg-white/70 px-3 py-5 text-center text-xs font-bold text-amber-800">Agendamentos bloqueados<br />sábado e domingo</div> : dayEvents.length ? dayEvents.map((event) => <AppointmentCard key={event.id} appointment={event} />) : (
                     <div className="rounded-2xl border border-dashed border-slate-200 bg-white/70 px-3 py-5 text-center text-xs font-semibold text-slate-400">Sem horários reservados</div>
                   )}
                 </div>

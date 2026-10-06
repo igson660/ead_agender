@@ -1,10 +1,17 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { CalendarDays, CheckCircle2, Clock3, Send } from "lucide-react";
+import { CalendarDays, Clock3, Send } from "lucide-react";
 import { TimeSlot } from "@/components/calendar/time-slot";
 import { Toast } from "@/components/ui/feedback";
-import { isAvailable, toInstitutionDateTime } from "@/lib/scheduling";
+import {
+  getFirstBookableDate,
+  getMinimumBookingTime,
+  isAvailable,
+  isDateBookable,
+  isWithinMinimumAdvance,
+  toInstitutionDateTime
+} from "@/lib/scheduling";
 import { appointmentSchema } from "@/lib/validation";
 import type { PublicAppointment } from "@/types/appointments";
 
@@ -25,18 +32,38 @@ type FormState = {
   notes: string;
 };
 
+function roundUpToQuarterHour(value: string | undefined) {
+  if (!value) return "09:00";
+  const [hours, minutes] = value.split(":").map(Number);
+  const rounded = Math.ceil((hours * 60 + minutes) / 15) * 15;
+  return `${String(Math.floor(rounded / 60)).padStart(2, "0")}:${String(rounded % 60).padStart(2, "0")}`;
+}
+
 export function AppointmentForm({ initialDate }: { initialDate: string }) {
-  const [values, setValues] = useState<FormState>({ requesterName: "", department: "", email: "", phone: "", date: initialDate, startTime: "09:00", endTime: "10:00", purpose: "", notes: "" });
+  const initialStartTime = roundUpToQuarterHour(getMinimumBookingTime(initialDate));
+  const initialEndMinutes = Math.min(18 * 60, Number(initialStartTime.slice(0, 2)) * 60 + Number(initialStartTime.slice(3)) + 60);
+  const initialEndTime = `${String(Math.floor(initialEndMinutes / 60)).padStart(2, "0")}:${String(initialEndMinutes % 60).padStart(2, "0")}`;
+  const [values, setValues] = useState<FormState>({ requesterName: "", department: "", email: "", phone: "", date: initialDate, startTime: initialStartTime, endTime: initialEndTime, purpose: "", notes: "" });
   const [events, setEvents] = useState<PublicAppointment[]>([]);
   const [availabilityLoading, setAvailabilityLoading] = useState(true);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [notice, setNotice] = useState<{ tone: "success" | "error" | "info"; message: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  const minimumDate = getFirstBookableDate();
+  const minimumTime = getMinimumBookingTime(values.date);
+  const dateIsBookable = isDateBookable(values.date);
+  const leadTimeSatisfied = dateIsBookable && isWithinMinimumAdvance(values.date, values.startTime);
+
   useEffect(() => {
     let active = true;
     async function loadAvailability() {
       setAvailabilityLoading(true);
+      if (!isDateBookable(values.date)) {
+        setEvents([]);
+        setAvailabilityLoading(false);
+        return;
+      }
       setNotice(null);
       try {
         const response = await fetch(`/api/availability?date=${values.date}`, { cache: "no-store" });
@@ -55,13 +82,24 @@ export function AppointmentForm({ initialDate }: { initialDate: string }) {
 
   const blocked = useMemo(() => events.map((event) => ({ startsAt: new Date(event.startsAt), endsAt: new Date(event.endsAt) })), [events]);
   const candidateIsAvailable = (() => {
-    if (!values.date || !values.startTime || !values.endTime || values.endTime <= values.startTime) return false;
+    if (!dateIsBookable || !leadTimeSatisfied || !values.date || !values.startTime || !values.endTime || values.endTime <= values.startTime) return false;
     return isAvailable({ startsAt: toInstitutionDateTime(values.date, values.startTime), endsAt: toInstitutionDateTime(values.date, values.endTime) }, blocked);
   })();
 
   function update(name: keyof FormState, value: string) {
     setValues((current) => ({ ...current, [name]: value }));
     setFieldErrors((current) => ({ ...current, [name]: "" }));
+  }
+
+  function handleDateChange(value: string) {
+    update("date", value);
+    if (value < minimumDate) {
+      setNotice({ tone: "info", message: "Escolha uma data com no mínimo 48 horas de antecedência." });
+    } else if (!isDateBookable(value)) {
+      setNotice({ tone: "info", message: "Sábados e domingos estão bloqueados para agendamento." });
+    } else {
+      setNotice(null);
+    }
   }
 
   function selectSlot(time: string) {
@@ -79,6 +117,16 @@ export function AppointmentForm({ initialDate }: { initialDate: string }) {
       for (const issue of parsed.error.issues) nextErrors[String(issue.path[0])] = issue.message;
       setFieldErrors(nextErrors);
       setNotice({ tone: "error", message: "Revise os campos destacados antes de enviar." });
+      return;
+    }
+    if (!dateIsBookable) {
+      setFieldErrors({ date: values.date < minimumDate ? "A data precisa respeitar 48 horas de antecedência." : "Sábados e domingos não estão disponíveis." });
+      setNotice({ tone: "error", message: "Escolha um dia útil com no mínimo 48 horas de antecedência." });
+      return;
+    }
+    if (!leadTimeSatisfied) {
+      setFieldErrors({ startTime: "O horário inicial precisa respeitar 48 horas de antecedência." });
+      setNotice({ tone: "error", message: "Escolha um horário a partir do limite mínimo permitido." });
       return;
     }
     if (!candidateIsAvailable) {
@@ -123,23 +171,24 @@ export function AppointmentForm({ initialDate }: { initialDate: string }) {
       <fieldset className="rounded-3xl border border-slate-200 bg-white p-5 shadow-card sm:p-7">
         <legend className="px-2 text-sm font-black text-slate-900">Dados da utilização</legend>
         <div className="mt-3 grid gap-4 md:grid-cols-3">
-          <Field label="Data" error={fieldErrors.date}><input type="date" min={initialDate} value={values.date} onChange={(event) => update("date", event.target.value)} /></Field>
-          <Field label="Horário inicial" error={fieldErrors.startTime}><input type="time" step="900" value={values.startTime} onChange={(event) => update("startTime", event.target.value)} /></Field>
-          <Field label="Horário final" error={fieldErrors.endTime}><input type="time" step="900" value={values.endTime} onChange={(event) => update("endTime", event.target.value)} /></Field>
+          <Field label="Data" error={fieldErrors.date}><input type="date" min={minimumDate} value={values.date} onChange={(event) => handleDateChange(event.target.value)} /></Field>
+          <Field label="Horário inicial" error={fieldErrors.startTime}><input type="time" step="900" min={minimumTime} disabled={!dateIsBookable} value={values.startTime} onChange={(event) => update("startTime", event.target.value)} /></Field>
+          <Field label="Horário final" error={fieldErrors.endTime}><input type="time" step="900" min={minimumTime} disabled={!dateIsBookable} value={values.endTime} onChange={(event) => update("endTime", event.target.value)} /></Field>
         </div>
+        <p className="mt-3 text-xs font-semibold text-slate-500">Antecedência mínima: 48 horas. Agendamentos disponíveis somente de segunda a sexta-feira.</p>
         <div className="mt-5 rounded-2xl bg-slate-50 p-4">
           <div className="flex flex-wrap items-center justify-between gap-2"><p className="flex items-center gap-2 text-sm font-extrabold text-slate-800"><Clock3 size={16} className="text-ieptec-600" />Horários de referência</p><span className="text-xs font-semibold text-slate-500">Cada bloco representa 15 min</span></div>
           <div className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-6 lg:grid-cols-9">
             {SLOTS.map((slot) => {
               const isStart = slot === values.startTime;
-              const state = isStart ? "selected" : (() => {
+              const state = isStart && dateIsBookable && leadTimeSatisfied ? "selected" : (() => {
                 const slotEnd = `${String(Math.floor((Number(slot.slice(0, 2)) * 60 + Number(slot.slice(3)) + 15) / 60)).padStart(2, "0")}:${String((Number(slot.slice(0, 2)) * 60 + Number(slot.slice(3)) + 15) % 60).padStart(2, "0")}`;
-                return isAvailable({ startsAt: toInstitutionDateTime(values.date, slot), endsAt: toInstitutionDateTime(values.date, slotEnd) }, blocked) ? "available" : "blocked";
+                return dateIsBookable && isWithinMinimumAdvance(values.date, slot) && isAvailable({ startsAt: toInstitutionDateTime(values.date, slot), endsAt: toInstitutionDateTime(values.date, slotEnd) }, blocked) ? "available" : "blocked";
               })();
               return <TimeSlot key={slot} time={slot} state={state} onSelect={selectSlot} />;
             })}
           </div>
-          {!availabilityLoading && <p className={`mt-3 text-xs font-bold ${candidateIsAvailable ? "text-emerald-700" : "text-rose-700"}`}>{candidateIsAvailable ? "🟢 Período disponível respeitando a margem de 15 minutos." : "⛔ Selecione um período disponível e mantenha o intervalo obrigatório."}</p>}
+          {!availabilityLoading && <p className={`mt-3 text-xs font-bold ${candidateIsAvailable ? "text-emerald-700" : "text-rose-700"}`}>{candidateIsAvailable ? "Período disponível respeitando 48 horas de antecedência e a margem de 15 minutos." : !dateIsBookable ? "Selecione um dia útil a partir do limite mínimo de 48 horas." : !leadTimeSatisfied ? "Os horários anteriores ao limite de 48 horas estão bloqueados." : "Selecione um período disponível e mantenha o intervalo obrigatório."}</p>}
         </div>
         <div className="mt-5 grid gap-4">
           <Field label="Finalidade" error={fieldErrors.purpose}><input value={values.purpose} onChange={(event) => update("purpose", event.target.value)} placeholder="Ex.: gravação de aula" /></Field>

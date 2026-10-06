@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isWeekendDate } from "@/lib/scheduling";
 
 const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
@@ -13,6 +14,11 @@ const calendarDateSchema = z
   .string()
   .regex(datePattern, "Selecione uma data válida.")
   .refine(isCalendarDate, "Selecione uma data existente no calendário.");
+
+const bookingDateSchema = calendarDateSchema.refine(
+  (value) => !isWeekendDate(value),
+  "Agendamentos não podem ser feitos aos sábados ou domingos."
+);
 
 export function sanitizeText(value: string) {
   return value
@@ -37,7 +43,7 @@ export const appointmentSchema = z
       .string()
       .transform((value) => value.replace(/[^\d+()\-\s]/g, "").replace(/\s+/g, " ").trim())
       .pipe(z.string().min(8, "Informe um telefone válido.").max(30)),
-    date: calendarDateSchema,
+    date: bookingDateSchema,
     startTime: z.string().regex(timePattern, "Selecione um horário inicial válido."),
     endTime: z.string().regex(timePattern, "Selecione um horário final válido."),
     purpose: cleanText(3, 180),
