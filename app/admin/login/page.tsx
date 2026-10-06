@@ -49,12 +49,8 @@ export default function AdminLoginPage() {
               Área restrita
             </p>
             <h1 className="mt-3 text-3xl font-black tracking-tight">
-              Gestão do Studio, com controle e rastreabilidade.
+              Gestão do Studio
             </h1>
-            <p className="mt-5 leading-7 text-ieptec-100">
-              Aprove, rejeite e acompanhe as solicitações com histórico
-              completo. O código administrativo é validado somente no servidor.
-            </p>
           </div>
           <div className="p-8 sm:p-12">
             <h2 className="text-2xl font-black tracking-tight text-slate-950">
